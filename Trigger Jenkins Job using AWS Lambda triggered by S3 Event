@@ -1,0 +1,78 @@
+https://opstree.com/blog/2022/12/13/trigger-jenkins-job-using-aws-lambda-triggered-by-s3-event/
+
+The problem that we faced:
+There was a cron scheduled in our environment at a particular time which used to run at 8AM. This cron read data from the s3 bucket and used to succeed but failed when there were no objects present.
+
+Problem this Integration solves:
+Eliminates the need of keeping a scheduler in the system. Lambda will work as a Scheduler.
+No manual intervention will be required in case the file from one service is delayed by a minute or an hour due to any reason. 
+Data exchange and processing between teams become more efficient and less error-prone.
+Eliminates the need of checking the presence of files on S3. It all gets automated.
+Workflow:
+The object is uploaded to S3
+S3 event triggers a Lambda function
+Lambda starts Jenkins job using Jenkins API
+
+Steps:
+1. GENERATE API TOKEN TOKEN:
+We need to generate an API token for the user which we will use to authenticate the API call to trigger the job
+
+a). Go to People >> User-Name >> Configure >> Add New Token under API Token >> Generate >> Save
+
+
+Now we need to add the authentication token to the job we want to trigger remotely.
+
+Note: API token is equal to the Authentication token
+
+b). Go to job >> Configure >> Trigger builds remotely under Build Triggers >> add API Token to Authentication Token Field >> Save
+
+
+With this information, you can now create a URL that looks like this:
+
+http://user-name:<api_token>@jenkins-web-url.com/job/<JobName>/build?token=<authentication_token>
+
+<JobName> should be replaced with the Jenkins project name.
+<api_token> should be replaced with API Token we created for the user.
+<authentication_token> should be replaced with the API Token. If we want to trigger a parameterized job, replace the build with Buildwithparameters in the URL.
+2. CREATE S3 BUCKET:
+I have created an empty bucket named s3-test-Jenkins. This bucket will trigger the Lambda script if any file or folder is uploaded in this bucket.
+
+3. CREATE LAMBDA FUNCTION:
+I have created a lambda function using the below steps:
+
+a). Go to Lambda >> create Function >> select Author From Scratch >>give function name >> select Python3.7 Runtime >> Create Function
+
+
+Add the below code to the lambda function that was created in the above steps:
+
+import requests
+import os
+ 
+USERNAME = os.environ['USERNAME']
+JENKINS_URL = os.environ['JENKINS_URL']
+API_TOKEN = os.environ['API_TOKEN']
+AUTH_TOKEN = os.environ['AUTH_TOKEN']
+ 
+ 
+def lambda_handler(event, context):
+   try:
+       url = "http://{}:{}@{}/build?token={}".format(USERNAME, API_TOKEN, JENKINS_URL, AUTH_TOKEN)
+       print(url)
+       response = requests.post(url)
+       if response.status_code != 201:
+          print(response.status_code)
+   except Exception as err:
+      print(err.args[0])
+These are the environment variables that you need to add the lambda function:
+
+b). Go to configuration >> Environment variables >> Add Environment Variable >> Save
+
+
+Add trigger into lambda function:
+
+c). Function >> select Add trigger >>Trigger configuration >> select s3 >> Bucket Name >> Event type >>Add
+
+
+Conclusion:
+In this blog, we have seen how in a few easy steps we can trigger AWS Lambda through an S3 event and trigger Jenkins through AWS Lambda. I hope this blog will help you if any such scenario comes up. Happy learning!
+
