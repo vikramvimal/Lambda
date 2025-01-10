@@ -1,0 +1,65 @@
+import boto3
+import json
+import logging
+
+def lambda_handler(event, context):
+    # Set up basic logging
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    # Iterate over S3 event records
+    for e in event["Records"]:
+        bucketName = e["s3"]["bucket"]["name"]
+        objectName = e["s3"]["object"]["key"]
+        eventName = e["eventName"]
+
+    # Create SES client
+    bClient = boto3.client("ses", region_name="us-east-1")  # Replace with your SES region
+
+    # Email subject
+    eSubject = f'AWS {eventName} Event'
+
+    # Email body in HTML format
+    eBody = f"""
+        <html>
+        <head></head>
+        <body>
+            <br>
+            Hey,<br>
+            <br>
+            Welcome to AWS S3 notification lambda trigger.<br>
+            <br>
+            We are here to notify you that {eventName} event was triggered.<br>
+            <br>
+            Bucket name: {bucketName}<br>
+            Object name: {objectName}<br>
+            <br>
+        </body>
+        </html>
+    """
+
+    # Email message structure
+    send = {
+        "Subject": {"Data": eSubject},
+        "Body": {"Html": {"Data": eBody}}
+    }
+
+    # Try sending the email via SES
+    try:
+        result = bClient.send_email(
+            Source="vikramvimal7@gmail.com",  # Replace with your verified sender email
+            Destination={"ToAddresses": ["vikramvimal7@gmail.com"]},  # Replace with recipient email
+            Message=send
+        )
+        logger.info(f"Email sent successfully: {result}")
+    except Exception as e:
+        logger.error(f"Error sending email: {str(e)}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'message': f"Error sending email: {str(e)}"})
+        }
+
+    return {
+        'statusCode': 200,
+        'body': json.dumps(result)
+    }
