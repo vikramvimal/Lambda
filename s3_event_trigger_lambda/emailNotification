@@ -1,65 +1,36 @@
-import boto3
 import json
-import logging
+import boto3
+
+# Create an SNS client
+sns_client = boto3.client('sns')
 
 def lambda_handler(event, context):
-    # Set up basic logging
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
-    # Iterate over S3 event records
-    for e in event["Records"]:
-        bucketName = e["s3"]["bucket"]["name"]
-        objectName = e["s3"]["object"]["key"]
-        eventName = e["eventName"]
-
-    # Create SES client
-    bClient = boto3.client("ses", region_name="us-east-1")  # Replace with your SES region
-
-    # Email subject
-    eSubject = f'AWS {eventName} Event'
-
-    # Email body in HTML format
-    eBody = f"""
-        <html>
-        <head></head>
-        <body>
-            <br>
-            Hey,<br>
-            <br>
-            Welcome to AWS S3 notification lambda trigger.<br>
-            <br>
-            We are here to notify you that {eventName} event was triggered.<br>
-            <br>
-            Bucket name: {bucketName}<br>
-            Object name: {objectName}<br>
-            <br>
-        </body>
-        </html>
-    """
-
-    # Email message structure
-    send = {
-        "Subject": {"Data": eSubject},
-        "Body": {"Html": {"Data": eBody}}
-    }
-
-    # Try sending the email via SES
-    try:
-        result = bClient.send_email(
-            Source="vikramvimal7@gmail.com",  # Replace with your verified sender email
-            Destination={"ToAddresses": ["vikramvimal7@gmail.com"]},  # Replace with recipient email
-            Message=send
+    # Get S3 event details
+    for record in event['Records']:
+        s3_bucket = record['s3']['bucket']['name']
+        s3_object_key = record['s3']['object']['key']
+        event_name = record['eventName']
+        
+        # Build the notification message with new lines
+        message = (
+            f"Event: {event_name}\n"
+            f"Bucket: {s3_bucket}\n"
+            f"Object: {s3_object_key}\n"
         )
-        logger.info(f"Email sent successfully: {result}")
-    except Exception as e:
-        logger.error(f"Error sending email: {str(e)}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps({'message': f"Error sending email: {str(e)}"})
-        }
+        
+        # Send notification to SNS
+        sns_topic_arn = 'arn:aws:sns:us-west-2:123456789012:MySNSTopic'  # Replace with the correct SNS Topic ARN
+        response = sns_client.publish(
+            TopicArn=sns_topic_arn,
+            Message=message,
+            Subject="S3 Event Notification",
+            MessageStructure="text"  # Ensure the message is sent as plain text
+        )
 
+        # Log the response (optional)
+        print(f"Sent message to SNS: {response}")
+    
     return {
         'statusCode': 200,
-        'body': json.dumps(result)
+        'body': json.dumps('Notification sent to SNS')
     }
